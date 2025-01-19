@@ -33,7 +33,7 @@ const textures = ['./csilla/color.png', './earth/map.jpg', './venus/map.jpg', '/
 const spheres = new THREE.Group();
 
 // Create a large sphere for the starfield background
-const starfieldGeometry = new THREE.SphereGeometry(50, 64, 64);
+const starfieldGeometry = new THREE.SphereGeometry(75, 64, 64);
 const starfieldTexture = new THREE.TextureLoader().load('./stars.jpg');
 starfieldTexture.colorSpace = THREE.SRGBColorSpace;
 starfieldTexture.wrapS = THREE.RepeatWrapping;
@@ -50,7 +50,7 @@ const orbitRadis = 4.5;
 // Add ambient light for base illumination
 
 
-
+const spheresMesh = [];
 
 
 for(let i = 0; i < 4 ; i++){
@@ -63,6 +63,8 @@ for(let i = 0; i < 4 ; i++){
     const material = new THREE.MeshStandardMaterial({ map: texture });
     const sphere = new THREE.Mesh(geometry, material);
 
+    spheresMesh.push(sphere)
+
     const angle = (i/4) * (Math.PI * 2);
     sphere.position.x = orbitRadis * Math.cos(angle); // 3D plane mai circular lane ki equation
     sphere.position.z = orbitRadis * Math.sin(angle); // 3 is center se 3 point dur
@@ -73,21 +75,81 @@ spheres.rotation.x = 0.15;
 spheres.position.y = -0.45;
 scene.add(spheres);
 
-setInterval(()=> {
-    gsap.to(spheres.rotation, {
-        y: `+=${Math.PI / 2}`,
-        duration: 2,
-        ease: "expo.easeInOut"
-    });
-}, 4500)
 
 
 // Position camera
 camera.position.z = 9;
 
+let isThrottled = false;
+let lastWheelTime = 0;
+const throttleDelay = 2000;
+let scrollCount = 0;
+window.addEventListener('wheel', (event) => {
+    const currentTime = Date.now();
+    if(currentTime - lastWheelTime >= throttleDelay){
+        lastWheelTime = currentTime;
+
+        const direction = event.deltaY > 0 ? 1 : -1;
+        scrollCount = (scrollCount + direction + 4) % 4;
+        
+        // Rotate planets immediately on scroll
+        gsap.to(spheres.rotation, {
+            duration: 1,
+            y: `+=${direction * Math.PI / 2}`,
+            ease: "power2.inOut"
+        });
+
+        // Delay the heading animation
+        setTimeout(() => {
+            const headings = document.querySelectorAll('.heading');
+            if(direction > 0) {
+                // Scrolling down
+                if(scrollCount === 0) {
+                    // Reset to first heading when reaching end
+                    gsap.to(headings, {
+                        duration: 1,
+                        y: "0%",
+                        ease: "power2.inOut"
+                    });
+                } else {
+                    gsap.to(headings, {
+                        duration: 1,
+                        y: `-=${100}%`,
+                        ease: "power2.inOut"
+                    });
+                }
+            } else {
+                // Scrolling up
+                if(scrollCount === 3) {
+                    gsap.to(headings, {
+                        duration: 1,
+                        y: "-300%", // Position to show last heading
+                        ease: "power2.inOut"
+                    });
+                } else {
+                    gsap.to(headings, {
+                        duration: 1,
+                        y: `+=${100}%`,
+                        ease: "power2.inOut"
+                    });
+                }
+            }
+        }, 500); // 500ms delay for heading animation
+    }
+});
+
+
+// Clock setup
+const clock = new THREE.Clock();
+
+
 // Animation loop
 function animate() {
     requestAnimationFrame(animate);
+    for(let i = 0; i < spheresMesh.length; i++){
+        const sphere = spheresMesh[i];
+        sphere.rotation.y = clock.getElapsedTime() * 0.02;
+    }
     renderer.render(scene, camera);
 }
 
